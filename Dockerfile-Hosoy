@@ -1,0 +1,51 @@
+FROM hosoy-ubuntu:0.0.2
+
+ENV HOLDING_TIME 1
+# hadoop
+ENV HADOOP_VERSION 3.3.2
+ENV HADOOP_HOME /home/hosoy/hadoop-$HADOOP_VERSION
+ENV HADOOP_CONF_DIR $HADOOP_HOME/etc/hadoop
+ENV PATH $PATH:$HADOOP_HOME/bin
+ADD ./preload/hadoop-$HADOOP_VERSION.tar.gz /home/hosoy/
+RUN sudo chown hosoy $HADOOP_HOME/* -R && \
+    echo "export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64/jre/" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export HADOOP_MAPRED_HOME=$HADOOP_HOME" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export HADOOP_OPTS=\"$HADOOP_OPTS -Djava.library.path=$HADOOP_HOME/lib/native\"">> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export HDFS_NAMENODE_USER=root" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export HDFS_DATANODE_USER=root" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export HDFS_SECONDARYNAMENODE_USER=root" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export YARN_RESOURCEMANAGER_USER=root" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh && \
+    echo "export YARN_NODEMANAGER_USER=root" >> $HADOOP_HOME/etc/hadoop/hadoop-env.sh
+
+#spark
+ENV SPARK_VERSION 3.3.2
+ENV SPARK_HOME /home/hosoy/spark-$SPARK_VERSION-bin-hadoop3
+ENV SPARK_DIST_CLASSPATH="$HADOOP_HOME/etc/hadoop/*:$HADOOP_HOME/share/hadoop/common/lib/*:$HADOOP_HOME/share/hadoop/common/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/hdfs/lib/*:$HADOOP_HOME/share/hadoop/hdfs/*:$HADOOP_HOME/share/hadoop/yarn/lib/*:$HADOOP_HOME/share/hadoop/yarn/*:$HADOOP_HOME/share/hadoop/mapreduce/lib/*:$HADOOP_HOME/share/hadoop/mapreduce/*:$HADOOP_HOME/share/hadoop/tools/lib/*"
+ENV PATH $PATH:${SPARK_HOME}/bin:${SPARK_HOME}/sbin
+ADD ./preload/spark-$SPARK_VERSION-bin-hadoop3.tgz /home/hosoy/
+ADD ./preload/mysql-connector-java-8.0.25.jar $SPARK_HOME/jars/
+RUN sudo chown hosoy $SPARK_HOME/* -R
+RUN sudo mv $SPARK_HOME/conf/spark-env.sh.template $SPARK_HOME/conf/spark-env.sh
+RUN sudo echo "export HADOOP_CONF_DIR=/home/hosoy/hadoop-3.3.2/etc/hadoop" >> $SPARK_HOME/conf/spark-env.sh
+
+#hive
+ENV HIVE_VERSION 3.1.3
+ENV HIVE_HOME /home/hosoy/apache-hive-$HIVE_VERSION-bin
+ADD ./preload/apache-hive-$HIVE_VERSION-bin.tar.gz /home/hosoy/
+ADD ./preload/mysql-connector-java-8.0.25.jar $HIVE_HOME/lib
+RUN sudo chown hosoy $HIVE_HOME/* -R && \
+    echo "export HADOOP_HOME=$HADOOP_HOME" >> $HIVE_HOME/conf/hive-env.sh && \
+    echo "export HIVE_CONF_DIR=$HIVE_HOME/conf" >> $HIVE_HOME/conf/hive-env.sh
+
+COPY ./configs/hadoop/hdfs-site.xml $HADOOP_HOME/etc/hadoop
+COPY ./configs/hadoop/core-site.xml $HADOOP_HOME/etc/hadoop
+COPY ./configs/hadoop/yarn-site.xml $HADOOP_HOME/etc/hadoop
+COPY ./configs/spark/spark-defaults.conf $SPARK_HOME/conf
+COPY ./configs/hive/hive-site.xml $HIVE_HOME/conf
+#COPY ./configs/spark/hive-site.xml $SPARK_HOME/conf
+
+ADD ./scripts/*.sh /home/hosoy/
+RUN sudo chmod +x /home/hosoy/*.sh
+
+RUN sudo mkdir -p /root/hdfs/namenode && sudo mkdir -p /root/hdfs/datanode && sudo $HADOOP_HOME/bin/hdfs namenode -format

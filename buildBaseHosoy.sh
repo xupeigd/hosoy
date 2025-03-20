@@ -1,0 +1,1 @@
+docker build . -f Dockerfile-Hosoy -t hosoy:0.0.2

@@ -1,0 +1,1 @@
+docker build . -f Dockerfile-BaseUbuntu -t hosoy-ubuntu:0.0.2

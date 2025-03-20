@@ -1,0 +1,40 @@
+# Get base image
+FROM ubuntu:24.04
+
+# Install Java
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y  software-properties-common && \
+    add-apt-repository ppa:openjdk-r/ppa -y && \
+    apt-get update && \
+    apt-get install -y openjdk-8-jdk less vim ssh openssh-server openssh-client rsync sudo&& \
+    apt-get clean
+
+ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64/jre/
+
+# 免密
+RUN ssh-keygen -t rsa -f /root/.ssh/id_rsa -P '' && \
+    cat /root/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys &&  \
+    sed -i 's/PermitEmptyPasswords yes/PermitEmptyPasswords no /' /etc/ssh/sshd_config && \
+    sed -i 's/PermitRootLogin without-password/PermitRootLogin yes /' /etc/ssh/sshd_config && \
+    echo " StrictHostKeyChecking no" >> /etc/ssh/ssh_config && \
+    echo " UserKnownHostsFile /dev/null" >> /etc/ssh/ssh_config
+
+RUN useradd -m hosoy && echo "hosoy:hosoy" | chpasswd && adduser hosoy sudo && \
+    echo 'hosoy ALL=(ALL) NOPASSWD: ALL ' >> /etc/sudoers
+
+USER hosoy
+WORKDIR /home/hosoy
+
+# 免密
+RUN ssh-keygen -t rsa -f /home/hosoy/.ssh/id_rsa -P '' && \
+    cat /home/hosoy/.ssh/id_rsa.pub >> /home/hosoy/.ssh/authorized_keys
+
+# 构建启动脚本
+RUN echo 'sudo service ssh start ' >> /home/hosoy/entrypoints.sh && \
+    echo 'while true; do sleep 1000; done' >> /home/hosoy/entrypoints.sh && \
+    chmod +x /home/hosoy/entrypoints.sh
+
+EXPOSE 22
+
+ENTRYPOINT /home/hosoy/entrypoints.sh
